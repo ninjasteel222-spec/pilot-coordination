@@ -1,5 +1,8 @@
+const http = require("http");
 const WebSocket = require("ws");
-const wss = new WebSocket.Server({ port: process.env.PORT || 8080 });
+
+const server = http.createServer();
+const wss = new WebSocket.Server({ server });
 
 let pilots = {};
 let clients = {};
@@ -55,7 +58,6 @@ wss.on("connection", ws => {
         pilots[data.pilotId].x = data.x;
         pilots[data.pilotId].y = data.y;
         broadcastPilots();
-        // уведомление координатору
         for (const id in clients) {
           if (pilots[id].isCoordinator) {
             clients[id].send(JSON.stringify({ type: "move", pilotId: data.pilotId, x: data.x, y: data.y }));
@@ -86,4 +88,8 @@ wss.on("connection", ws => {
       }
     }
   });
+});
+
+server.listen(process.env.PORT || 8080, () => {
+  console.log("Server running");
 });
