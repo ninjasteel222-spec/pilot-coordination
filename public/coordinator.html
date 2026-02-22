@@ -4,40 +4,15 @@
   <meta charset="UTF-8">
   <title>Координатор</title>
   <style>
-    html, body {
-      margin: 0; padding: 0;
-      width: 100%; height: 100%;
-      overflow: hidden;
-      background: #003b6d; /* цвет за пределами карты */
-    }
-    #map {
-      position: absolute; top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: url("map.jpg") no-repeat center center;
-      background-size: cover;
-      transform-origin: center center;
-    }
-    .marker {
-      position: absolute;
-      width: 24px; height: 24px;
-      border-radius: 50%;
-      color: #fff;
-      font-size: 14px;
-    }
-    #panel {
-      position: absolute; top: 10px; right: 10px;
-      width: 250px; max-height: 90%;
-      background: rgba(0,0,0,0.6); color: #fff;
-      padding: 10px; font-family: sans-serif;
-      overflow-y: auto; border-radius: 8px;
-    }
-    .pilot-entry { margin-bottom: 8px; padding: 6px; background: rgba(255,255,255,0.1); border-radius: 4px; }
-    .verify-btn, .disconnect-btn {
-      margin-left: 10px; padding: 2px 6px;
-      border: none; border-radius: 4px; cursor: pointer;
-    }
-    .verify-btn { background: green; color: #fff; }
-    .disconnect-btn { background: red; color: #fff; }
+    html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#003b6d; }
+    #map { position:absolute; top:0; left:0; width:100%; height:100%; background:url("map.jpg") no-repeat center center; background-size:cover; transform-origin:center center; }
+    .marker { position:absolute; width:24px; height:24px; border-radius:50%; color:#fff; font-size:14px; }
+    #panel { position:absolute; top:10px; right:10px; width:250px; max-height:90%; background:rgba(0,0,0,0.6); color:#fff; padding:10px; font-family:sans-serif; overflow-y:auto; border-radius:8px; }
+    .pilot-entry { margin-bottom:8px; padding:6px; background:rgba(255,255,255,0.1); border-radius:4px; }
+    .verify-btn, .disconnect-btn, .relocate-btn { margin-left:5px; padding:2px 6px; border:none; border-radius:4px; cursor:pointer; }
+    .verify-btn { background:green; color:#fff; }
+    .disconnect-btn { background:red; color:#fff; }
+    .relocate-btn { background:orange; color:#fff; }
   </style>
 </head>
 <body>
@@ -73,3 +48,66 @@
         const btnDisconnect = document.createElement("button");
         btnDisconnect.className = "disconnect-btn";
         btnDisconnect.textContent = "Откл.";
+        btnDisconnect.onclick = () => socket.send(JSON.stringify({ type: "disconnect", pilotId }));
+
+        const btnRelocate = document.createElement("button");
+        btnRelocate.className = "relocate-btn";
+        btnRelocate.textContent = "Переместить";
+        btnRelocate.onclick = () => socket.send(JSON.stringify({ type: "relocate", pilotId, x: 200, y: 200 }));
+
+        entry.appendChild(btnVerify);
+        entry.appendChild(btnDisconnect);
+        entry.appendChild(btnRelocate);
+        pilotList.appendChild(entry);
+      }
+    }
+
+    socket.onmessage = event => {
+      const data = JSON.parse(event.data);
+
+      if (data.type === "pilots") {
+        updatePanel(data.pilots);
+        for (const pilotId in data.pilots) {
+          const p = data.pilots[pilotId];
+          if (!markers[pilotId]) {
+            const marker = document.createElement("div");
+            marker.className = "marker";
+            marker.style.left = p.x + "px";
+            marker.style.top = p.y + "px";
+
+            if (p.isCoordinator) {
+              marker.textContent = "★";
+              marker.style.color = "yellow";
+              marker.style.fontSize = "24px";
+              marker.style.background = "transparent";
+            } else {
+              marker.style.background = p.color;
+              const label = document.createElement("span");
+              label.textContent = p.name;
+              label.style.position = "absolute";
+              label.style.left = "30px";
+              label.style.top = "0";
+              label.style.color = "#fff";
+              marker.appendChild(label);
+            }
+
+            map.appendChild(marker);
+            markers[pilotId] = marker;
+          }
+        }
+      }
+
+      if (data.type === "update" || data.type === "relocate") {
+        if (markers[data.pilotId]) {
+          markers[data.pilotId].style.left = data.x + "px";
+          markers[data.pilotId].style.top = data.y + "px";
+        }
+      }
+    };
+
+    socket.onopen = () => {
+      socket.send(JSON.stringify({ type: "register", pilotId: "coordinator", name: "Координатор", isCoordinator: true }));
+    };
+  </script>
+</body>
+</html>
