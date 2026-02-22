@@ -14,7 +14,7 @@
       position:absolute; top:0; left:0;
       width:100%; height:100%;
       background:url("map.jpg") no-repeat center center;
-      background-size:cover;
+      background-size:contain; /* показываем всю карту */
       transform-origin:center center;
     }
     .marker {
@@ -47,13 +47,33 @@
     const pilotInfo = document.getElementById("pilotInfo");
     let marker;
     let scale = 1;
+    let translateX = 0, translateY = 0;
+    let isDraggingMap = false;
+    let startX, startY;
     let verified = false;
 
-    // Зум колесиком мыши
+    // Зум колесиком
     document.addEventListener("wheel", e => {
       e.preventDefault();
       scale *= e.deltaY < 0 ? 1.1 : 0.9;
-      map.style.transform = `scale(${scale})`;
+      map.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+    });
+
+    // Перемещение карты мышью
+    map.addEventListener("mousedown", e => {
+      if (!marker || !e.target.classList.contains("marker")) {
+        isDraggingMap = true;
+        startX = e.clientX - translateX;
+        startY = e.clientY - translateY;
+      }
+    });
+    document.addEventListener("mouseup", () => { isDraggingMap = false; });
+    document.addEventListener("mousemove", e => {
+      if (isDraggingMap) {
+        translateX = e.clientX - startX;
+        translateY = e.clientY - startY;
+        map.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+      }
     });
 
     function updatePanel(x, y) {
@@ -107,6 +127,10 @@
       if (data.type === "verify" && data.pilotId === pilotId) {
         verified = true;
         updatePanel(parseInt(marker.style.left), parseInt(marker.style.top));
+        // Голосовое уведомление при верификации
+        const utterance = new SpeechSynthesisUtterance(`Пилот ${name}, вы верифицированы`);
+        utterance.lang = "ru-RU";
+        speechSynthesis.speak(utterance);
       }
 
       if (data.type === "relocate" && data.pilotId === pilotId) {
@@ -114,13 +138,14 @@
         marker.style.top = data.y + "px";
         updatePanel(data.x, data.y);
 
-        // Голосовое уведомление
+        // Голосовое уведомление при перемещении координатором
         const utterance = new SpeechSynthesisUtterance(`Пилот ${name}, измените ваше местоположение`);
         utterance.lang = "ru-RU";
         speechSynthesis.speak(utterance);
       }
     };
 
+    // Управление стрелками
     document.addEventListener("keydown", e => {
       if (!marker) return;
       let x = parseInt(marker.style.left);
