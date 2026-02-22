@@ -5,14 +5,13 @@
   <title>Координатор</title>
   <style>
     html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#003b6d; }
-    #map { position:absolute; top:0; left:0; width:100%; height:100%; background:url("map.jpg") no-repeat center center; background-size:cover; transform-origin:center center; }
-    .marker { position:absolute; width:24px; height:24px; border-radius:50%; color:#fff; font-size:14px; }
+    #map { position:absolute; top:0; left:0; width:100%; height:100%; background:url("map.jpg") no-repeat center center; background-size:contain; transform-origin:center center; }
+    .marker { position:absolute; width:24px; height:24px; border-radius:50%; color:#fff; font-size:14px; cursor:grab; }
     #panel { position:absolute; top:10px; right:10px; width:250px; max-height:90%; background:rgba(0,0,0,0.6); color:#fff; padding:10px; font-family:sans-serif; overflow-y:auto; border-radius:8px; }
     .pilot-entry { margin-bottom:8px; padding:6px; background:rgba(255,255,255,0.1); border-radius:4px; }
-    .verify-btn, .disconnect-btn, .relocate-btn { margin-left:5px; padding:2px 6px; border:none; border-radius:4px; cursor:pointer; }
+    .verify-btn, .disconnect-btn { margin-left:5px; padding:2px 6px; border:none; border-radius:4px; cursor:pointer; }
     .verify-btn { background:green; color:#fff; }
     .disconnect-btn { background:red; color:#fff; }
-    .relocate-btn { background:orange; color:#fff; }
   </style>
 </head>
 <body>
@@ -25,13 +24,35 @@
     const pilotList = document.getElementById("pilotList");
     const markers = {};
     let scale = 1;
+    let isDraggingMap = false;
+    let startX, startY;
+    let translateX = 0, translateY = 0;
 
+    // Зум
     document.addEventListener("wheel", e => {
       e.preventDefault();
       scale *= e.deltaY < 0 ? 1.1 : 0.9;
-      map.style.transform = `scale(${scale})`;
+      map.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
     });
 
+    // Перемещение карты
+    map.addEventListener("mousedown", e => {
+      if (!e.target.classList.contains("marker")) {
+        isDraggingMap = true;
+        startX = e.clientX - translateX;
+        startY = e.clientY - translateY;
+      }
+    });
+    document.addEventListener("mouseup", () => { isDraggingMap = false; });
+    document.addEventListener("mousemove", e => {
+      if (isDraggingMap) {
+        translateX = e.clientX - startX;
+        translateY = e.clientY - startY;
+        map.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+      }
+    });
+
+    // Панель пилотов
     function updatePanel(pilots) {
       pilotList.innerHTML = "";
       for (const pilotId in pilots) {
@@ -50,18 +71,44 @@
         btnDisconnect.textContent = "Откл.";
         btnDisconnect.onclick = () => socket.send(JSON.stringify({ type: "disconnect", pilotId }));
 
-        const btnRelocate = document.createElement("button");
-        btnRelocate.className = "relocate-btn";
-        btnRelocate.textContent = "Переместить";
-        btnRelocate.onclick = () => socket.send(JSON.stringify({ type: "relocate", pilotId, x: 200, y: 200 }));
-
         entry.appendChild(btnVerify);
         entry.appendChild(btnDisconnect);
-        entry.appendChild(btnRelocate);
         pilotList.appendChild(entry);
       }
     }
 
+    // Drag меток пилотов
+    let draggingMarker = null;
+    let dragPilotId = null;
+    let offsetX = 0, offsetY = 0;
+
+    map.addEventListener("mousedown", e => {
+      if (e.target.classList.contains("marker")) {
+        draggingMarker = e.target;
+        dragPilotId = e.target.dataset.pilotId;
+        offsetX = e.offsetX;
+        offsetY = e.offsetY;
+      }
+    });
+
+    document.addEventListener("mouseup", () => {
+      if (draggingMarker && dragPilotId) {
+        const x = parseInt(draggingMarker.style.left);
+        const y = parseInt(draggingMarker.style.top);
+        socket.send(JSON.stringify({ type: "relocate", pilotId: dragPilotId, x, y }));
+        draggingMarker = null;
+        dragPilotId = null;
+      }
+    });
+
+    document.addEventListener("mousemove", e => {
+      if (draggingMarker) {
+        draggingMarker.style.left = (e.pageX - offsetX) + "px";
+        draggingMarker.style.top = (e.pageY - offsetY) + "px";
+      }
+    });
+
+    // Обработка сообщений
     socket.onmessage = event => {
       const data = JSON.parse(event.data);
 
@@ -72,6 +119,7 @@
           if (!markers[pilotId]) {
             const marker = document.createElement("div");
             marker.className = "marker";
+            marker.dataset.pilotId = pilotId;
             marker.style.left = p.x + "px";
             marker.style.top = p.y + "px";
 
@@ -92,22 +140,4 @@
             }
 
             map.appendChild(marker);
-            markers[pilotId] = marker;
-          }
-        }
-      }
-
-      if (data.type === "update" || data.type === "relocate") {
-        if (markers[data.pilotId]) {
-          markers[data.pilotId].style.left = data.x + "px";
-          markers[data.pilotId].style.top = data.y + "px";
-        }
-      }
-    };
-
-    socket.onopen = () => {
-      socket.send(JSON.stringify({ type: "register", pilotId: "coordinator", name: "Координатор", isCoordinator: true }));
-    };
-  </script>
-</body>
-</html>
+            markers[pilot
