@@ -2,62 +2,63 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Координатор</title>
+  <title>Пилот</title>
   <style>
     body { margin:0; background:#003b6d; }
     #map { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); }
     .marker { position:absolute; width:10px; height:10px; border-radius:50%; }
-    #panel { position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.6); color:#fff; padding:10px; }
+    #panel { position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.6); color:#fff; padding:10px; }
   </style>
 </head>
 <body>
   <div id="map"><img src="map.jpg" alt="map"></div>
-  <div id="panel"><h3>Пилоты</h3><div id="pilotList"></div></div>
+  <div id="panel"><h3>Пилот</h3><div id="pilotInfo"></div></div>
 
   <script>
+    let pilotId = localStorage.getItem("pilotId");
+    let name = localStorage.getItem("pilotName");
+    let color = localStorage.getItem("pilotColor");
+
+    if (!pilotId || !name) {
+      pilotId = "pilot-" + Math.floor(Math.random()*10000);
+      name = prompt("Введите ваше имя:");
+      color = `hsl(${Math.floor(Math.random()*360)},80%,50%)`;
+      localStorage.setItem("pilotId",pilotId);
+      localStorage.setItem("pilotName",name);
+      localStorage.setItem("pilotColor",color);
+    }
+
     const socket = new WebSocket(
       (location.protocol === "https:" ? "wss://" : "ws://") + location.host
     );
     const map = document.getElementById("map");
-    const pilotList = document.getElementById("pilotList");
-    const markers = {};
+    const pilotInfo = document.getElementById("pilotInfo");
+    let marker;
 
-    function updatePanel(pilots) {
-      pilotList.innerHTML = "";
-      for (const id in pilots) {
-        const p = pilots[id];
-        const div = document.createElement("div");
-        div.textContent = `${p.name} (${id}) ${p.verified ? "✅" : "❌"}`;
-        const v = document.createElement("button");
-        v.textContent = "Вериф."; v.onclick = () => socket.send(JSON.stringify({type:"verify",pilotId:id}));
-        const d = document.createElement("button");
-        d.textContent = "Откл."; d.onclick = () => socket.send(JSON.stringify({type:"disconnect",pilotId:id}));
-        div.appendChild(v); div.appendChild(d);
-        pilotList.appendChild(div);
-      }
+    function updateInfo(x,y,verified) {
+      pilotInfo.innerHTML=`ID:${pilotId}<br>Имя:${name}<br>(${x},${y})<br>${verified?"✅":"❌"}`;
     }
+
+    socket.onopen = () => {
+      socket.send(JSON.stringify({type:"register",pilotId,name,color}));
+    };
 
     socket.onmessage = e => {
       const data = JSON.parse(e.data);
-      if (data.type === "pilots") {
-        updatePanel(data.pilots);
-        for (const id in data.pilots) {
-          const p = data.pilots[id];
-          if (!markers[id]) {
-            const m = document.createElement("div");
-            m.className="marker";
-            m.style.left=p.x+"px"; m.style.top=p.y+"px";
-            m.style.background=p.color||"yellow";
-            map.appendChild(m);
-            markers[id]=m;
-          }
+      if (data.type==="pilots") {
+        const p=data.pilots[pilotId];
+        if (p && !marker) {
+          marker=document.createElement("div");
+          marker.className="marker";
+          marker.style.left=p.x+"px"; marker.style.top=p.y+"px";
+          marker.style.background=color;
+          map.appendChild(marker);
+          updateInfo(p.x,p.y,p.verified);
         }
       }
-    };
-
-    socket.onopen = () => {
-      socket.send(JSON.stringify({type:"register",pilotId:"coordinator",name:"Координатор",isCoordinator:true}));
-    };
-  </script>
-</body>
-</html>
+      if (data.type==="verify" && data.pilotId===pilotId) {
+        updateInfo(marker.style.left,marker.style.top,true);
+      }
+      if (data.type==="disconnect" && data.pilotId===pilotId) {
+        localStorage.clear();
+        alert("Вас отключил координатор");
