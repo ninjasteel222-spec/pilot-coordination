@@ -38,14 +38,17 @@
       map.style.transform = `translate(calc(-50% + ${translateX}px), calc(-50% + ${translateY}px)) scale(${scale})`;
     }
 
-    // Зум колесиком
+    // Зум с ограничением
     document.addEventListener("wheel", e => {
       e.preventDefault();
-      scale *= e.deltaY < 0 ? 1.1 : 0.9;
+      const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+      scale *= zoomFactor;
+      if (scale < 0.5) scale = 0.5;
+      if (scale > 3.0) scale = 3.0;
       updateTransform();
     });
 
-    // Перемещение карты мышью
+    // Перемещение карты
     map.addEventListener("mousedown", e => {
       if (!e.target.classList.contains("marker")) {
         isDraggingMap = true;
@@ -104,8 +107,11 @@
 
     document.addEventListener("mousemove", e => {
       if (draggingMarker) {
-        draggingMarker.style.left = (e.pageX - offsetX) + "px";
-        draggingMarker.style.top = (e.pageY - offsetY) + "px";
+        const rect = map.getBoundingClientRect();
+        const x = (e.clientX - rect.left - offsetX) / scale;
+        const y = (e.clientY - rect.top - offsetY) / scale;
+        draggingMarker.style.left = x + "px";
+        draggingMarker.style.top = y + "px";
       }
     });
 
