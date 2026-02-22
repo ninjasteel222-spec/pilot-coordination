@@ -4,8 +4,6 @@ const WebSocket = require("ws");
 const path = require("path");
 
 const app = express();
-
-// Раздаём статические файлы из папки public
 app.use(express.static(path.join(__dirname, "public")));
 
 const server = http.createServer(app);
@@ -29,13 +27,9 @@ function broadcastPilots() {
 wss.on("connection", ws => {
   ws.on("message", msg => {
     let data;
-    try {
-      data = JSON.parse(msg);
-    } catch (e) {
-      console.error("Invalid JSON:", msg);
-      return;
-    }
+    try { data = JSON.parse(msg); } catch { return; }
 
+    // регистрация
     if (data.type === "register") {
       if (data.isCoordinator) {
         if (coordinatorActive) {
@@ -47,9 +41,11 @@ wss.on("connection", ws => {
       }
       pilots[data.pilotId] = { ...data, x: 100, y: 100, verified: false };
       clients[data.pilotId] = ws;
+      console.log("Registered:", data);
       broadcastPilots();
     }
 
+    // верификация
     if (data.type === "verify") {
       if (pilots[data.pilotId]) {
         pilots[data.pilotId].verified = true;
@@ -60,6 +56,7 @@ wss.on("connection", ws => {
       }
     }
 
+    // отключение
     if (data.type === "disconnect") {
       if (clients[data.pilotId]) {
         clients[data.pilotId].send(JSON.stringify({ type: "disconnect", pilotId: data.pilotId }));
@@ -70,19 +67,16 @@ wss.on("connection", ws => {
       }
     }
 
+    // перемещение
     if (data.type === "move") {
       if (pilots[data.pilotId]) {
         pilots[data.pilotId].x = data.x;
         pilots[data.pilotId].y = data.y;
         broadcastPilots();
-        for (const id in clients) {
-          if (pilots[id] && pilots[id].isCoordinator) {
-            clients[id].send(JSON.stringify({ type: "move", pilotId: data.pilotId, x: data.x, y: data.y }));
-          }
-        }
       }
     }
 
+    // relocate координатором
     if (data.type === "relocate") {
       if (pilots[data.pilotId]) {
         pilots[data.pilotId].x = data.x;
@@ -108,6 +102,4 @@ wss.on("connection", ws => {
 });
 
 const PORT = process.env.PORT || 8080;
-server.listen(PORT, () => {
-  console.log("Server running on port", PORT);
-});
+server.listen(PORT, () => console.log("Server running on port", PORT));
