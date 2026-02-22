@@ -4,17 +4,50 @@
   <meta charset="UTF-8">
   <title>Координатор</title>
   <style>
-    #map { position: relative; width: 800px; height: 600px; background: url("map.jpg") no-repeat center/cover; border: 2px solid #333; }
-    .marker { position: absolute; width: 24px; height: 24px; border-radius: 50%; background: red; cursor: grab; }
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    #map {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: url("map.jpg") no-repeat center center;
+      background-size: contain;
+      transform-origin: center center;
+    }
+
+    .marker {
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: red;
+      cursor: grab;
+    }
   </style>
 </head>
 <body>
-  <h2>Карта координатора</h2>
   <div id="map"></div>
   <script>
     const socket = new WebSocket(location.origin.replace(/^http/, 'ws'));
     const map = document.getElementById("map");
     const markers = {};
+    let scale = 1;
+
+    // Зум колесиком мыши
+    document.addEventListener("wheel", e => {
+      e.preventDefault();
+      if (e.deltaY < 0) scale *= 1.1;
+      else scale /= 1.1;
+      map.style.transform = `scale(${scale})`;
+    });
 
     socket.onmessage = event => {
       const data = JSON.parse(event.data);
@@ -29,28 +62,19 @@
             marker.dataset.pilotId = pilotId;
             map.appendChild(marker);
             markers[pilotId] = marker;
-
-            let dragging = false, offsetX, offsetY;
-            marker.addEventListener("mousedown", e => { dragging = true; offsetX = e.offsetX; offsetY = e.offsetY; });
-            document.addEventListener("mouseup", () => dragging = false);
-            document.addEventListener("mousemove", e => {
-              if (!dragging) return;
-              const rect = map.getBoundingClientRect();
-              let x = e.clientX - rect.left - offsetX;
-              let y = e.clientY - rect.top - offsetY;
-              marker.style.left = x + "px";
-              marker.style.top = y + "px";
-              socket.send(JSON.stringify({ type: "move", pilotId, x, y }));
-            });
           }
         }
       }
 
       if (data.type === "update") {
-        if (markers[data.pilotId]) {
-          markers[data.pilotId].style.left = data.x + "px";
-          markers[data.pilotId].style.top = data.y + "px";
+        if (!markers[data.pilotId]) {
+          const marker = document.createElement("div");
+          marker.className = "marker";
+          map.appendChild(marker);
+          markers[data.pilotId] = marker;
         }
+        markers[data.pilotId].style.left = data.x + "px";
+        markers[data.pilotId].style.top = data.y + "px";
       }
     };
   </script>
