@@ -5,10 +5,7 @@
   <title>Координатор</title>
   <style>
     html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#003b6d; }
-    #map-container, #map, #map img {
-      user-select: none;
-      -webkit-user-drag: none;
-    }
+    #map-container, #map, #map img { user-select: none; -webkit-user-drag: none; }
     #map-container { position:absolute; top:0; left:0; width:100%; height:100%; overflow:hidden; }
     #map { position:absolute; top:50%; left:50%; transform:translate(-50%, -50%) scale(1); transform-origin:center center; }
     .marker { position:absolute; width:8px; height:8px; border-radius:50%; color:#fff; font-size:10px; cursor:grab; }
@@ -32,8 +29,7 @@
     const map = document.getElementById("map");
     const pilotList = document.getElementById("pilotList");
     const markers = {};
-    let scale = 1;
-    let translateX = 0, translateY = 0;
+    let scale = 1, translateX = 0, translateY = 0;
     let isDraggingMap = false, startX, startY;
 
     function updateTransform() {
@@ -44,7 +40,7 @@
       e.preventDefault();
       const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
       scale *= zoomFactor;
-      if (scale < 0.2) scale = 0.2; // ограничение только на отдаление
+      if (scale < 0.2) scale = 0.2;
       updateTransform();
     });
 
@@ -88,39 +84,6 @@
         pilotList.appendChild(entry);
       }
     }
-
-    let draggingMarker = null;
-    let dragPilotId = null;
-    let offsetX = 0, offsetY = 0;
-
-    map.addEventListener("mousedown", e => {
-      if (e.target.classList.contains("marker")) {
-        draggingMarker = e.target;
-        dragPilotId = e.target.dataset.pilotId;
-        offsetX = e.offsetX;
-        offsetY = e.offsetY;
-      }
-    });
-
-    document.addEventListener("mouseup", () => {
-      if (draggingMarker && dragPilotId) {
-        const x = parseInt(draggingMarker.style.left);
-        const y = parseInt(draggingMarker.style.top);
-        socket.send(JSON.stringify({ type: "relocate", pilotId: dragPilotId, x, y }));
-        draggingMarker = null;
-        dragPilotId = null;
-      }
-    });
-
-    document.addEventListener("mousemove", e => {
-      if (draggingMarker) {
-        const rect = map.getBoundingClientRect();
-        const x = (e.clientX - rect.left - offsetX) / scale;
-        const y = (e.clientY - rect.top - offsetY) / scale;
-        draggingMarker.style.left = x + "px";
-        draggingMarker.style.top = y + "px";
-      }
-    });
 
     socket.onmessage = event => {
       const data = JSON.parse(event.data);
@@ -168,6 +131,12 @@
           utterance.lang = "ru-RU";
           speechSynthesis.speak(utterance);
         }
+      }
+
+      if (data.type === "error" && data.message === "Координатор уже активен") {
+        alert("Координатор уже активен на другом устройстве. Вход невозможен.");
+        socket.close();
+        window.location.href = "/";
       }
     };
 
