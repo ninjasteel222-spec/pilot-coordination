@@ -13,6 +13,7 @@
     #map { position:absolute; top:50%; left:50%; transform:translate(-50%, -50%) scale(1); transform-origin:center center; }
     .marker { position:absolute; width:8px; height:8px; border-radius:50%; cursor:grab; font-size:10px; }
     #panel { position:absolute; top:10px; left:10px; width:220px; background:rgba(0,0,0,0.6); color:#fff; padding:10px; font-family:sans-serif; border-radius:8px; }
+    #logout { margin-top:10px; padding:5px 10px; background:red; color:#fff; border:none; border-radius:4px; cursor:pointer; }
   </style>
 </head>
 <body>
@@ -21,12 +22,34 @@
       <img src="map.jpg" alt="map" style="width:100%; height:auto;">
     </div>
   </div>
-  <div id="panel"><h3>Пилот</h3><div id="pilotInfo"></div></div>
+  <div id="panel">
+    <h3>Пилот</h3>
+    <div id="pilotInfo"></div>
+    <button id="logout">Выйти</button>
+  </div>
 
   <script>
-    const pilotId = "pilot-" + Math.floor(Math.random() * 10000);
-    const name = prompt("Введите ваше имя:");
-    const color = `hsl(${Math.floor(Math.random() * 360)}, 80%, 50%)`;
+    // Сессия пилота сохраняется в localStorage
+    let pilotId = localStorage.getItem("pilotId");
+    let name = localStorage.getItem("pilotName");
+    let color = localStorage.getItem("pilotColor");
+
+    if (!pilotId || !name) {
+      pilotId = "pilot-" + Math.floor(Math.random() * 10000);
+      name = prompt("Введите ваше имя:");
+      color = `hsl(${Math.floor(Math.random() * 360)}, 80%, 50%)`;
+
+      localStorage.setItem("pilotId", pilotId);
+      localStorage.setItem("pilotName", name);
+      localStorage.setItem("pilotColor", color);
+    }
+
+    document.getElementById("logout").onclick = () => {
+      localStorage.removeItem("pilotId");
+      localStorage.removeItem("pilotName");
+      localStorage.removeItem("pilotColor");
+      location.reload();
+    };
 
     const socket = new WebSocket(location.origin.replace(/^http/, 'ws'));
     const map = document.getElementById("map");
@@ -42,13 +65,12 @@
       map.style.transform = `translate(calc(-50% + ${translateX}px), calc(-50% + ${translateY}px)) scale(${scale})`;
     }
 
-    // Зум с ограничением
+    // Зум: без ограничений на приближение, ограничение только на отдаление
     document.addEventListener("wheel", e => {
       e.preventDefault();
       const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
       scale *= zoomFactor;
-      if (scale < 0.5) scale = 0.5;
-      if (scale > 3.0) scale = 3.0;
+      if (scale < 0.2) scale = 0.2; // минимальный масштаб
       updateTransform();
     });
 
@@ -180,21 +202,7 @@
         }
       }
 
-      if ((data.type === "update" || data.type === "relocate") && markers[data.pilotId]) {
-        markers[data.pilotId].style.left = data.x + "px";
-        markers[data.pilotId].style.top = data.y + "px";
-        if (data.pilotId === pilotId) updatePanel(data.x, data.y);
-      }
-
-      if (data.type === "verify" && data.pilotId === pilotId) {
-        verified = true;
-        updatePanel(parseInt(marker.style.left), parseInt(marker.style.top));
-        const utterance = new SpeechSynthesisUtterance(`Пилот ${name}, вы верифицированы`);
-        utterance.lang = "ru-RU";
-        speechSynthesis.speak(utterance);
-      }
-
-      if (data.type === "relocate" && data.pilotId === pilotId) {
+            if (data.type === "relocate" && data.pilotId === pilotId) {
         marker.style.left = data.x + "px";
         marker.style.top = data.y + "px";
         updatePanel(data.x, data.y);
