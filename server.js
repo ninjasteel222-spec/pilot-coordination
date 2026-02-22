@@ -36,7 +36,6 @@ wss.on("connection", ws => {
       }
       pilots[data.pilotId] = { ...data, x: 100, y: 100, verified: false };
       clients[data.pilotId] = ws;
-      console.log("Registered:", data);
       broadcastPilots();
     }
 
@@ -92,7 +91,7 @@ wss.on("connection", ws => {
   });
 
   ws.on("error", () => {
-    coordinatorActive = false; // сбросим флаг на всякий случай
+    coordinatorActive = false;
   });
 });
 
