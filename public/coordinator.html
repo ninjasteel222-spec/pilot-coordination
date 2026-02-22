@@ -5,63 +5,39 @@
   <title>Координатор</title>
   <style>
     html, body {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
+      margin: 0; padding: 0;
+      width: 100%; height: 100%;
       overflow: hidden;
+      background: #003b6d; /* цвет за пределами карты */
     }
-
     #map {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 100%;
       background: url("map.jpg") no-repeat center center;
-      background-size: cover; /* карта растянута на весь экран */
+      background-size: cover;
       transform-origin: center center;
     }
-
     .marker {
       position: absolute;
-      width: 24px;
-      height: 24px;
+      width: 24px; height: 24px;
       border-radius: 50%;
-      background: red;
-      cursor: grab;
+      color: #fff;
+      font-size: 14px;
     }
-
     #panel {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      width: 250px;
-      max-height: 90%;
-      background: rgba(0,0,0,0.6);
-      color: #fff;
-      padding: 10px;
-      font-family: sans-serif;
-      overflow-y: auto;
-      border-radius: 8px;
+      position: absolute; top: 10px; right: 10px;
+      width: 250px; max-height: 90%;
+      background: rgba(0,0,0,0.6); color: #fff;
+      padding: 10px; font-family: sans-serif;
+      overflow-y: auto; border-radius: 8px;
     }
-
-    .pilot-entry {
-      margin-bottom: 8px;
-      padding: 6px;
-      background: rgba(255,255,255,0.1);
-      border-radius: 4px;
+    .pilot-entry { margin-bottom: 8px; padding: 6px; background: rgba(255,255,255,0.1); border-radius: 4px; }
+    .verify-btn, .disconnect-btn {
+      margin-left: 10px; padding: 2px 6px;
+      border: none; border-radius: 4px; cursor: pointer;
     }
-
-    .verify-btn {
-      margin-left: 10px;
-      padding: 2px 6px;
-      background: green;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
+    .verify-btn { background: green; color: #fff; }
+    .disconnect-btn { background: red; color: #fff; }
   </style>
 </head>
 <body>
@@ -75,60 +51,25 @@
     const markers = {};
     let scale = 1;
 
-    // Зум колесиком мыши
     document.addEventListener("wheel", e => {
       e.preventDefault();
-      if (e.deltaY < 0) scale *= 1.1;
-      else scale /= 1.1;
+      scale *= e.deltaY < 0 ? 1.1 : 0.9;
       map.style.transform = `scale(${scale})`;
     });
 
     function updatePanel(pilots) {
       pilotList.innerHTML = "";
       for (const pilotId in pilots) {
+        const p = pilots[pilotId];
         const entry = document.createElement("div");
         entry.className = "pilot-entry";
-        entry.textContent = `${pilotId}: (${pilots[pilotId].x}, ${pilots[pilotId].y})`;
+        entry.textContent = `${p.name} (${pilotId}): (${p.x}, ${p.y}) ${p.verified ? "✅" : "❌"}`;
 
-        const btn = document.createElement("button");
-        btn.className = "verify-btn";
-        btn.textContent = "✅";
-        btn.onclick = () => alert(`Пилот ${pilotId} верифицирован!`);
-        entry.appendChild(btn);
+        const btnVerify = document.createElement("button");
+        btnVerify.className = "verify-btn";
+        btnVerify.textContent = "Вериф.";
+        btnVerify.onclick = () => socket.send(JSON.stringify({ type: "verify", pilotId }));
 
-        pilotList.appendChild(entry);
-      }
-    }
-
-    socket.onmessage = event => {
-      const data = JSON.parse(event.data);
-
-      if (data.type === "pilots") {
-        updatePanel(data.pilots);
-        for (const pilotId in data.pilots) {
-          if (!markers[pilotId]) {
-            const marker = document.createElement("div");
-            marker.className = "marker";
-            marker.style.left = data.pilots[pilotId].x + "px";
-            marker.style.top = data.pilots[pilotId].y + "px";
-            marker.dataset.pilotId = pilotId;
-            map.appendChild(marker);
-            markers[pilotId] = marker;
-          }
-        }
-      }
-
-      if (data.type === "update") {
-        if (!markers[data.pilotId]) {
-          const marker = document.createElement("div");
-          marker.className = "marker";
-          map.appendChild(marker);
-          markers[data.pilotId] = marker;
-        }
-        markers[data.pilotId].style.left = data.x + "px";
-        markers[data.pilotId].style.top = data.y + "px";
-      }
-    };
-  </script>
-</body>
-</html>
+        const btnDisconnect = document.createElement("button");
+        btnDisconnect.className = "disconnect-btn";
+        btnDisconnect.textContent = "Откл.";
