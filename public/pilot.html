@@ -8,33 +8,20 @@
       margin:0; padding:0;
       width:100%; height:100%;
       overflow:hidden;
-      background:#003b6d; /* цвет за пределами карты */
+      background:#003b6d;
     }
-    #map {
-      position:absolute; top:0; left:0;
-      width:100%; height:100%;
-      background:url("map.jpg") no-repeat center center;
-      background-size:contain; /* показываем всю карту */
-      transform-origin:center center;
-    }
-    .marker {
-      position:absolute;
-      width:24px; height:24px;
-      border-radius:50%;
-    }
-    #panel {
-      position:absolute; top:10px; left:10px;
-      width:200px;
-      background:rgba(0,0,0,0.6);
-      color:#fff;
-      padding:10px;
-      font-family:sans-serif;
-      border-radius:8px;
-    }
+    #map-container { position:absolute; top:0; left:0; width:100%; height:100%; overflow:hidden; background:#003b6d; }
+    #map { position:absolute; top:0; left:0; transform-origin:center center; }
+    #markers { position:absolute; top:0; left:0; width:100%; height:100%; }
+    .marker { position:absolute; width:24px; height:24px; border-radius:50%; cursor:grab; }
+    #panel { position:absolute; top:10px; left:10px; width:220px; background:rgba(0,0,0,0.6); color:#fff; padding:10px; font-family:sans-serif; border-radius:8px; }
   </style>
 </head>
 <body>
-  <div id="map"></div>
+  <div id="map-container">
+    <img id="map" src="map.jpg" alt="map">
+    <div id="markers"></div>
+  </div>
   <div id="panel"><h3>Пилот</h3><div id="pilotInfo"></div></div>
 
   <script>
@@ -44,12 +31,13 @@
 
     const socket = new WebSocket(location.origin.replace(/^http/, 'ws'));
     const map = document.getElementById("map");
+    const markersLayer = document.getElementById("markers");
     const pilotInfo = document.getElementById("pilotInfo");
+    const markers = {};
     let marker;
     let scale = 1;
     let translateX = 0, translateY = 0;
-    let isDraggingMap = false;
-    let startX, startY;
+    let isDraggingMap = false, startX, startY;
     let verified = false;
 
     // Зум колесиком
@@ -61,11 +49,9 @@
 
     // Перемещение карты мышью
     map.addEventListener("mousedown", e => {
-      if (!marker || !e.target.classList.contains("marker")) {
-        isDraggingMap = true;
-        startX = e.clientX - translateX;
-        startY = e.clientY - translateY;
-      }
+      isDraggingMap = true;
+      startX = e.clientX - translateX;
+      startY = e.clientY - translateY;
     });
     document.addEventListener("mouseup", () => { isDraggingMap = false; });
     document.addEventListener("mousemove", e => {
@@ -94,40 +80,104 @@
       }));
     };
 
+    // Drag собственной метки
+    let draggingMarker = null;
+    let offsetX = 0, offsetY = 0;
+
+    markersLayer.addEventListener("mousedown", e => {
+      if (e.target.classList.contains("marker") && e.target.dataset.pilotId === pilotId) {
+        draggingMarker = e.target;
+        offsetX = e.offsetX;
+        offsetY = e.offsetY;
+      }
+    });
+
+    document.addEventListener("mouseup", () => {
+      if (draggingMarker) {
+        const x = parseInt(draggingMarker.style.left);
+        const y = parseInt(draggingMarker.style.top);
+        socket.send(JSON.stringify({ type: "move", pilotId, x, y }));
+        updatePanel(x, y);
+        draggingMarker = null;
+      }
+    });
+
+    document.addEventListener("mousemove", e => {
+      if (draggingMarker) {
+        draggingMarker.style.left = (e.pageX - offsetX) + "px";
+        draggingMarker.style.top = (e.pageY - offsetY) + "px";
+      }
+    });
+
     socket.onmessage = event => {
       const data = JSON.parse(event.data);
 
       if (data.type === "pilots") {
-        if (data.pilots[pilotId] && !marker) {
-          marker = document.createElement("div");
-          marker.className = "marker";
-          marker.style.background = color;
-          marker.style.left = data.pilots[pilotId].x + "px";
-          marker.style.top = data.pilots[pilotId].y + "px";
+        if (verified) {
+          // показываем всех пилотов
+          for (const pid in data.pilots) {
+            const p = data.pilots[pid];
+            if (!markers[pid]) {
+              const m = document.createElement("div");
+              m.className = "marker";
+              m.dataset.pilotId = pid;
+              m.style.left = p.x + "px";
+              m.style.top = p.y + "px";
 
-          const label = document.createElement("span");
-          label.textContent = name;
-          label.style.position = "absolute";
-          label.style.left = "30px";
-          label.style.top = "0";
-          label.style.color = "#fff";
-          marker.appendChild(label);
+              if (p.isCoordinator) {
+                m.textContent = "★";
+                m.style.color = "yellow";
+                m.style.fontSize = "24px";
+                m.style.background = "transparent";
+              } else {
+                m.style.background = p.color;
+                const label = document.createElement("span");
+                label.textContent = p.name;
+                label.style.position = "absolute";
+                label.style.left = "30px";
+                label.style.top = "0";
+                label.style.color = "#fff";
+                m.appendChild(label);
+              }
 
-          map.appendChild(marker);
-          updatePanel(data.pilots[pilotId].x, data.pilots[pilotId].y);
+              markersLayer.appendChild(m);
+              markers[pid] = m;
+            }
+          }
+        } else {
+          // до верификации показываем только свою метку
+          if (data.pilots[pilotId] && !marker) {
+            marker = document.createElement("div");
+            marker.className = "marker";
+            marker.dataset.pilotId = pilotId;
+            marker.style.background = color;
+            marker.style.left = data.pilots[pilotId].x + "px";
+            marker.style.top = data.pilots[pilotId].y + "px";
+
+            const label = document.createElement("span");
+            label.textContent = name;
+            label.style.position = "absolute";
+            label.style.left = "30px";
+            label.style.top = "0";
+            label.style.color = "#fff";
+            marker.appendChild(label);
+
+            markersLayer.appendChild(marker);
+            markers[pilotId] = marker;
+            updatePanel(data.pilots[pilotId].x, data.pilots[pilotId].y);
+          }
         }
       }
 
-      if (data.type === "update" && data.pilotId === pilotId && marker) {
-        marker.style.left = data.x + "px";
-        marker.style.top = data.y + "px";
-        updatePanel(data.x, data.y);
+      if (data.type === "update" && markers[data.pilotId]) {
+        markers[data.pilotId].style.left = data.x + "px";
+        markers[data.pilotId].style.top = data.y + "px";
+        if (data.pilotId === pilotId) updatePanel(data.x, data.y);
       }
 
       if (data.type === "verify" && data.pilotId === pilotId) {
         verified = true;
         updatePanel(parseInt(marker.style.left), parseInt(marker.style.top));
-        // Голосовое уведомление при верификации
         const utterance = new SpeechSynthesisUtterance(`Пилот ${name}, вы верифицированы`);
         utterance.lang = "ru-RU";
         speechSynthesis.speak(utterance);
@@ -137,30 +187,11 @@
         marker.style.left = data.x + "px";
         marker.style.top = data.y + "px";
         updatePanel(data.x, data.y);
-
-        // Голосовое уведомление при перемещении координатором
         const utterance = new SpeechSynthesisUtterance(`Пилот ${name}, измените ваше местоположение`);
         utterance.lang = "ru-RU";
         speechSynthesis.speak(utterance);
       }
     };
-
-    // Управление стрелками
-    document.addEventListener("keydown", e => {
-      if (!marker) return;
-      let x = parseInt(marker.style.left);
-      let y = parseInt(marker.style.top);
-
-      if (e.key === "ArrowUp") y -= 10;
-      if (e.key === "ArrowDown") y += 10;
-      if (e.key === "ArrowLeft") x -= 10;
-      if (e.key === "ArrowRight") x += 10;
-
-      marker.style.left = x + "px";
-      marker.style.top = y + "px";
-      socket.send(JSON.stringify({ type: "move", pilotId, x, y }));
-      updatePanel(x, y);
-    });
   </script>
 </body>
 </html>
