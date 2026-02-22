@@ -44,8 +44,7 @@
       e.preventDefault();
       const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
       scale *= zoomFactor;
-      if (scale < 0.5) scale = 0.5;
-      if (scale > 3.0) scale = 3.0;
+      if (scale < 0.2) scale = 0.2; // ограничение только на отдаление
       updateTransform();
     });
 
