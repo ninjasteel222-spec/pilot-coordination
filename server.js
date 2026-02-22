@@ -9,14 +9,30 @@ const wss = new WebSocket.Server({ server });
 
 app.use(express.static(path.join(__dirname, "public")));
 
-let pilots = {};
+const pilots = {};
+
+function broadcast(message) {
+  const msg = JSON.stringify(message);
+  wss.clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(msg);
+    }
+  });
+}
 
 wss.on("connection", ws => {
   ws.on("message", msg => {
     const data = JSON.parse(msg);
 
     if (data.type === "register") {
-      pilots[data.pilotId] = { x: 100, y: 100 };
+      pilots[data.pilotId] = {
+        x: 100,
+        y: 100,
+        name: data.name || "Без имени",
+        color: data.color || "blue",
+        isCoordinator: data.isCoordinator || false,
+        verified: false
+      };
       broadcast({ type: "pilots", pilots });
     }
 
@@ -27,19 +43,20 @@ wss.on("connection", ws => {
         broadcast({ type: "update", pilotId: data.pilotId, x: data.x, y: data.y });
       }
     }
-  });
 
-  ws.send(JSON.stringify({ type: "pilots", pilots }));
-});
+    if (data.type === "verify") {
+      if (pilots[data.pilotId]) {
+        pilots[data.pilotId].verified = true;
+        broadcast({ type: "verify", pilotId: data.pilotId });
+      }
+    }
 
-function broadcast(msg) {
-  const json = JSON.stringify(msg);
-  wss.clients.forEach(client => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(json);
+    if (data.type === "disconnect") {
+      delete pilots[data.pilotId];
+      broadcast({ type: "pilots", pilots });
     }
   });
-}
+});
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
