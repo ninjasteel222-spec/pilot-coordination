@@ -5,7 +5,11 @@
   <title>Пилот</title>
   <style>
     html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#003b6d; }
-    #map-container { position:absolute; top:0; left:0; width:100%; height:100%; overflow:hidden; background:#003b6d; }
+    #map-container, #map, #map img {
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+    #map-container { position:absolute; top:0; left:0; width:100%; height:100%; overflow:hidden; }
     #map { position:absolute; top:50%; left:50%; transform:translate(-50%, -50%) scale(1); transform-origin:center center; }
     .marker { position:absolute; width:8px; height:8px; border-radius:50%; cursor:grab; font-size:10px; }
     #panel { position:absolute; top:10px; left:10px; width:220px; background:rgba(0,0,0,0.6); color:#fff; padding:10px; font-family:sans-serif; border-radius:8px; }
@@ -50,6 +54,7 @@
 
     // Перемещение карты
     map.addEventListener("mousedown", e => {
+      e.preventDefault();
       if (!e.target.classList.contains("marker")) {
         isDraggingMap = true;
         startX = e.clientX - translateX;
@@ -119,43 +124,63 @@
       const data = JSON.parse(event.data);
 
       if (data.type === "pilots") {
-        // после верификации показываем всех пилотов
-        for (const pid in data.pilots) {
-          const p = data.pilots[pid];
-          if (!markers[pid]) {
-            const m = document.createElement("div");
-            m.className = "marker";
-            m.dataset.pilotId = pid;
-            m.style.left = p.x + "px";
-            m.style.top = p.y + "px";
+        if (verified) {
+          // показываем всех пилотов
+          for (const pid in data.pilots) {
+            const p = data.pilots[pid];
+            if (!markers[pid]) {
+              const m = document.createElement("div");
+              m.className = "marker";
+              m.dataset.pilotId = pid;
+              m.style.left = p.x + "px";
+              m.style.top = p.y + "px";
 
-            if (p.isCoordinator) {
-              m.textContent = "★";
-              m.style.color = "yellow";
-              m.style.fontSize = "16px";
-              m.style.background = "transparent";
-            } else {
-              m.style.background = p.color;
-              const label = document.createElement("span");
-              label.textContent = p.name;
-              label.style.position = "absolute";
-              label.style.left = "15px";
-              label.style.top = "0";
-              label.style.color = "#fff";
-              m.appendChild(label);
+              if (p.isCoordinator) {
+                m.textContent = "★";
+                m.style.color = "yellow";
+                m.style.fontSize = "16px";
+                m.style.background = "transparent";
+              } else {
+                m.style.background = p.color;
+                const label = document.createElement("span");
+                label.textContent = p.name;
+                label.style.position = "absolute";
+                label.style.left = "15px";
+                label.style.top = "0";
+                label.style.color = "#fff";
+                m.appendChild(label);
+              }
+
+              map.appendChild(m);
+              markers[pid] = m;
             }
-
-            map.appendChild(m);
-            markers[pid] = m;
           }
-        }
-        if (data.pilots[pilotId] && !marker) {
-          marker = markers[pilotId];
-          updatePanel(data.pilots[pilotId].x, data.pilots[pilotId].y);
+        } else {
+          // до верификации показываем только свою метку
+          if (data.pilots[pilotId] && !marker) {
+            marker = document.createElement("div");
+            marker.className = "marker";
+            marker.dataset.pilotId = pilotId;
+            marker.style.background = color;
+            marker.style.left = data.pilots[pilotId].x + "px";
+            marker.style.top = data.pilots[pilotId].y + "px";
+
+            const label = document.createElement("span");
+            label.textContent = name;
+            label.style.position = "absolute";
+            label.style.left = "15px";
+            label.style.top = "0";
+            label.style.color = "#fff";
+            marker.appendChild(label);
+
+            map.appendChild(marker);
+            markers[pilotId] = marker;
+            updatePanel(data.pilots[pilotId].x, data.pilots[pilotId].y);
+          }
         }
       }
 
-      if (data.type === "update" && markers[data.pilotId]) {
+      if ((data.type === "update" || data.type === "relocate") && markers[data.pilotId]) {
         markers[data.pilotId].style.left = data.x + "px";
         markers[data.pilotId].style.top = data.y + "px";
         if (data.pilotId === pilotId) updatePanel(data.x, data.y);
