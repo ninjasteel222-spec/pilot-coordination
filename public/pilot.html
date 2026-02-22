@@ -211,8 +211,20 @@
         speechSynthesis.speak(utterance);
       }
 
-      if (data.type === "disconnect" && data.pilotId === pilotId) {
+           if (data.type === "disconnect" && data.pilotId === pilotId) {
         localStorage.removeItem("pilotId");
         localStorage.removeItem("pilotName");
         localStorage.removeItem("pilotColor");
-        const utterance = new SpeechSynthesisUtterance
+
+        const utterance = new SpeechSynthesisUtterance(`Пилот ${name}, ваша сессия завершена координатором`);
+        utterance.lang = "ru-RU";
+        speechSynthesis.speak(utterance);
+
+        socket.close();
+        alert("Вас отключил координатор. Сессия завершена.");
+        window.location.href = "/";
+      }
+    };
+  </script>
+</body>
+</html>
