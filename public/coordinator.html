@@ -7,7 +7,6 @@
     html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#003b6d; }
     #map-container { position:absolute; top:0; left:0; width:100%; height:100%; overflow:hidden; background:#003b6d; }
     #map { position:absolute; top:50%; left:50%; transform:translate(-50%, -50%) scale(1); transform-origin:center center; }
-    #markers { position:absolute; top:0; left:0; width:100%; height:100%; }
     .marker { position:absolute; width:24px; height:24px; border-radius:50%; color:#fff; font-size:14px; cursor:grab; }
     #panel { position:absolute; top:10px; right:10px; width:250px; max-height:90%; background:rgba(0,0,0,0.6); color:#fff; padding:10px; font-family:sans-serif; overflow-y:auto; border-radius:8px; }
     .pilot-entry { margin-bottom:8px; padding:6px; background:rgba(255,255,255,0.1); border-radius:4px; }
@@ -18,15 +17,15 @@
 </head>
 <body>
   <div id="map-container">
-    <img id="map" src="map.jpg" alt="map">
-    <div id="markers"></div>
+    <div id="map">
+      <img src="map.jpg" alt="map" style="width:100%; height:auto;">
+    </div>
   </div>
   <div id="panel"><h3>Пилоты</h3><div id="pilotList"></div></div>
 
   <script>
     const socket = new WebSocket(location.origin.replace(/^http/, 'ws'));
     const map = document.getElementById("map");
-    const markersLayer = document.getElementById("markers");
     const pilotList = document.getElementById("pilotList");
     const markers = {};
     let scale = 1;
@@ -46,9 +45,11 @@
 
     // Перемещение карты
     map.addEventListener("mousedown", e => {
-      isDraggingMap = true;
-      startX = e.clientX - translateX;
-      startY = e.clientY - translateY;
+      if (!e.target.classList.contains("marker")) {
+        isDraggingMap = true;
+        startX = e.clientX - translateX;
+        startY = e.clientY - translateY;
+      }
     });
     document.addEventListener("mouseup", () => { isDraggingMap = false; });
     document.addEventListener("mousemove", e => {
@@ -89,7 +90,7 @@
     let dragPilotId = null;
     let offsetX = 0, offsetY = 0;
 
-    markersLayer.addEventListener("mousedown", e => {
+    map.addEventListener("mousedown", e => {
       if (e.target.classList.contains("marker")) {
         draggingMarker = e.target;
         dragPilotId = e.target.dataset.pilotId;
@@ -146,7 +147,7 @@
               marker.appendChild(label);
             }
 
-            markersLayer.appendChild(marker);
+            map.appendChild(marker);
             markers[pilotId] = marker;
           }
         }
