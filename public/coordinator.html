@@ -5,7 +5,11 @@
   <title>Координатор</title>
   <style>
     html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#003b6d; }
-    #map-container { position:absolute; top:0; left:0; width:100%; height:100%; overflow:hidden; background:#003b6d; }
+    #map-container, #map, #map img {
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+    #map-container { position:absolute; top:0; left:0; width:100%; height:100%; overflow:hidden; }
     #map { position:absolute; top:50%; left:50%; transform:translate(-50%, -50%) scale(1); transform-origin:center center; }
     .marker { position:absolute; width:8px; height:8px; border-radius:50%; color:#fff; font-size:10px; cursor:grab; }
     #panel { position:absolute; top:10px; right:10px; width:250px; max-height:90%; background:rgba(0,0,0,0.6); color:#fff; padding:10px; font-family:sans-serif; overflow-y:auto; border-radius:8px; }
@@ -36,7 +40,6 @@
       map.style.transform = `translate(calc(-50% + ${translateX}px), calc(-50% + ${translateY}px)) scale(${scale})`;
     }
 
-    // Зум с ограничением
     document.addEventListener("wheel", e => {
       e.preventDefault();
       const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
@@ -46,8 +49,8 @@
       updateTransform();
     });
 
-    // Перемещение карты
     map.addEventListener("mousedown", e => {
+      e.preventDefault();
       if (!e.target.classList.contains("marker")) {
         isDraggingMap = true;
         startX = e.clientX - translateX;
@@ -63,7 +66,6 @@
       }
     });
 
-    // Панель пилотов
     function updatePanel(pilots) {
       pilotList.innerHTML = "";
       for (const pilotId in pilots) {
@@ -88,7 +90,6 @@
       }
     }
 
-    // Drag меток пилотов
     let draggingMarker = null;
     let dragPilotId = null;
     let offsetX = 0, offsetY = 0;
@@ -122,7 +123,6 @@
       }
     });
 
-    // Обработка сообщений
     socket.onmessage = event => {
       const data = JSON.parse(event.data);
 
