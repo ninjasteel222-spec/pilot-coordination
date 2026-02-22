@@ -16,11 +16,7 @@ let coordinatorActive = false;
 function broadcastPilots() {
   const data = { type: "pilots", pilots };
   for (const id in clients) {
-    try {
-      clients[id].send(JSON.stringify(data));
-    } catch (e) {
-      console.error("Broadcast error:", e);
-    }
+    try { clients[id].send(JSON.stringify(data)); } catch (e) {}
   }
 }
 
@@ -29,7 +25,6 @@ wss.on("connection", ws => {
     let data;
     try { data = JSON.parse(msg); } catch { return; }
 
-    // регистрация
     if (data.type === "register") {
       if (data.isCoordinator) {
         if (coordinatorActive) {
@@ -45,7 +40,6 @@ wss.on("connection", ws => {
       broadcastPilots();
     }
 
-    // верификация
     if (data.type === "verify") {
       if (pilots[data.pilotId]) {
         pilots[data.pilotId].verified = true;
@@ -56,7 +50,6 @@ wss.on("connection", ws => {
       }
     }
 
-    // отключение
     if (data.type === "disconnect") {
       if (clients[data.pilotId]) {
         clients[data.pilotId].send(JSON.stringify({ type: "disconnect", pilotId: data.pilotId }));
@@ -67,7 +60,6 @@ wss.on("connection", ws => {
       }
     }
 
-    // перемещение
     if (data.type === "move") {
       if (pilots[data.pilotId]) {
         pilots[data.pilotId].x = data.x;
@@ -76,7 +68,6 @@ wss.on("connection", ws => {
       }
     }
 
-    // relocate координатором
     if (data.type === "relocate") {
       if (pilots[data.pilotId]) {
         pilots[data.pilotId].x = data.x;
@@ -98,6 +89,10 @@ wss.on("connection", ws => {
         broadcastPilots();
       }
     }
+  });
+
+  ws.on("error", () => {
+    coordinatorActive = false; // сбросим флаг на всякий случай
   });
 });
 
