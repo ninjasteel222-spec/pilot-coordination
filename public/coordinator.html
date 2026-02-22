@@ -25,7 +25,7 @@
   <div id="panel"><h3>Пилоты</h3><div id="pilotList"></div></div>
 
   <script>
-    const socket = new WebSocket(location.origin.replace(/^http/, 'ws'));
+    const socket = new WebSocket(location.origin.replace(/^http/, 'wss'));
     const map = document.getElementById("map");
     const pilotList = document.getElementById("pilotList");
     const markers = {};
