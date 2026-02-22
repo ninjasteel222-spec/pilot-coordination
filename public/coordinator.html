@@ -10,7 +10,6 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background: #000; /* убираем белый фон */
     }
 
     #map {
@@ -20,7 +19,7 @@
       width: 100%;
       height: 100%;
       background: url("map.jpg") no-repeat center center;
-      background-size: contain; /* карта растягивается пропорционально */
+      background-size: cover; /* карта растянута на весь экран */
       transform-origin: center center;
     }
 
@@ -32,13 +31,47 @@
       background: red;
       cursor: grab;
     }
+
+    #panel {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 250px;
+      max-height: 90%;
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      padding: 10px;
+      font-family: sans-serif;
+      overflow-y: auto;
+      border-radius: 8px;
+    }
+
+    .pilot-entry {
+      margin-bottom: 8px;
+      padding: 6px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 4px;
+    }
+
+    .verify-btn {
+      margin-left: 10px;
+      padding: 2px 6px;
+      background: green;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
   <div id="map"></div>
+  <div id="panel"><h3>Пилоты</h3><div id="pilotList"></div></div>
+
   <script>
     const socket = new WebSocket(location.origin.replace(/^http/, 'ws'));
     const map = document.getElementById("map");
+    const pilotList = document.getElementById("pilotList");
     const markers = {};
     let scale = 1;
 
@@ -50,10 +83,28 @@
       map.style.transform = `scale(${scale})`;
     });
 
+    function updatePanel(pilots) {
+      pilotList.innerHTML = "";
+      for (const pilotId in pilots) {
+        const entry = document.createElement("div");
+        entry.className = "pilot-entry";
+        entry.textContent = `${pilotId}: (${pilots[pilotId].x}, ${pilots[pilotId].y})`;
+
+        const btn = document.createElement("button");
+        btn.className = "verify-btn";
+        btn.textContent = "✅";
+        btn.onclick = () => alert(`Пилот ${pilotId} верифицирован!`);
+        entry.appendChild(btn);
+
+        pilotList.appendChild(entry);
+      }
+    }
+
     socket.onmessage = event => {
       const data = JSON.parse(event.data);
 
       if (data.type === "pilots") {
+        updatePanel(data.pilots);
         for (const pilotId in data.pilots) {
           if (!markers[pilotId]) {
             const marker = document.createElement("div");
