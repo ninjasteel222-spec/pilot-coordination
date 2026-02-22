@@ -140,4 +140,22 @@
             }
 
             map.appendChild(marker);
-            markers[pilot
+            markers[pilotId] = marker;
+          }
+        }
+      }
+
+      if (data.type === "update" || data.type === "relocate") {
+        if (markers[data.pilotId]) {
+          markers[data.pilotId].style.left = data.x + "px";
+          markers[data.pilotId].style.top = data.y + "px";
+        }
+      }
+    };
+
+    socket.onopen = () => {
+      socket.send(JSON.stringify({ type: "register", pilotId: "coordinator", name: "Координатор", isCoordinator: true }));
+    };
+  </script>
+</body>
+</html>
