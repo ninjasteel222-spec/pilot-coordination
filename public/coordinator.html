@@ -4,27 +4,13 @@
   <meta charset="UTF-8">
   <title>Координатор</title>
   <style>
-    #map {
-      position: relative;
-      width: 800px;
-      height: 600px;
-      background: url("map.jpg") no-repeat center center;
-      background-size: cover;
-      border: 2px solid #333;
-    }
-    .marker {
-      position: absolute;
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      cursor: grab;
-    }
+    #map { position: relative; width: 800px; height: 600px; background: url("map.jpg") no-repeat center/cover; border: 2px solid #333; }
+    .marker { position: absolute; width: 24px; height: 24px; border-radius: 50%; background: red; cursor: grab; }
   </style>
 </head>
 <body>
   <h2>Карта координатора</h2>
   <div id="map"></div>
-
   <script>
     const socket = new WebSocket(location.origin.replace(/^http/, 'ws'));
     const map = document.getElementById("map");
@@ -38,20 +24,14 @@
           if (!markers[pilotId]) {
             const marker = document.createElement("div");
             marker.className = "marker";
-            marker.style.background = "red";
             marker.style.left = data.pilots[pilotId].x + "px";
             marker.style.top = data.pilots[pilotId].y + "px";
             marker.dataset.pilotId = pilotId;
             map.appendChild(marker);
             markers[pilotId] = marker;
 
-            // Перетаскивание метки
             let dragging = false, offsetX, offsetY;
-            marker.addEventListener("mousedown", e => {
-              dragging = true;
-              offsetX = e.offsetX;
-              offsetY = e.offsetY;
-            });
+            marker.addEventListener("mousedown", e => { dragging = true; offsetX = e.offsetX; offsetY = e.offsetY; });
             document.addEventListener("mouseup", () => dragging = false);
             document.addEventListener("mousemove", e => {
               if (!dragging) return;
@@ -76,4 +56,3 @@
   </script>
 </body>
 </html>
-
