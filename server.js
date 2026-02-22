@@ -55,6 +55,14 @@ wss.on("connection", ws => {
       delete pilots[data.pilotId];
       broadcast({ type: "pilots", pilots });
     }
+
+    if (data.type === "relocate") {
+      if (pilots[data.pilotId]) {
+        pilots[data.pilotId].x = data.x;
+        pilots[data.pilotId].y = data.y;
+        broadcast({ type: "relocate", pilotId: data.pilotId, x: data.x, y: data.y });
+      }
+    }
   });
 });
 
