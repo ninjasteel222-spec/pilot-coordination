@@ -6,7 +6,7 @@
   <style>
     html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#003b6d; }
     #map-container { position:absolute; top:0; left:0; width:100%; height:100%; overflow:hidden; background:#003b6d; }
-    #map { position:absolute; top:0; left:0; transform-origin:center center; }
+    #map { position:absolute; top:50%; left:50%; transform:translate(-50%, -50%) scale(1); transform-origin:center center; }
     #markers { position:absolute; top:0; left:0; width:100%; height:100%; }
     .marker { position:absolute; width:24px; height:24px; border-radius:50%; color:#fff; font-size:14px; cursor:grab; }
     #panel { position:absolute; top:10px; right:10px; width:250px; max-height:90%; background:rgba(0,0,0,0.6); color:#fff; padding:10px; font-family:sans-serif; overflow-y:auto; border-radius:8px; }
@@ -33,11 +33,15 @@
     let translateX = 0, translateY = 0;
     let isDraggingMap = false, startX, startY;
 
+    function updateTransform() {
+      map.style.transform = `translate(calc(-50% + ${translateX}px), calc(-50% + ${translateY}px)) scale(${scale})`;
+    }
+
     // Зум
     document.addEventListener("wheel", e => {
       e.preventDefault();
       scale *= e.deltaY < 0 ? 1.1 : 0.9;
-      map.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+      updateTransform();
     });
 
     // Перемещение карты
@@ -51,7 +55,7 @@
       if (isDraggingMap) {
         translateX = e.clientX - startX;
         translateY = e.clientY - startY;
-        map.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+        updateTransform();
       }
     });
 
