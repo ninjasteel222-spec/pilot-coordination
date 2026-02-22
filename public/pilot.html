@@ -5,14 +5,17 @@
   <title>Пилот</title>
   <style>
     body { margin:0; background:#003b6d; }
-    #map { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); }
+    #map-container { position:absolute; top:0; left:0; width:100%; height:100%; overflow:hidden; }
+    #map { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) scale(1); transform-origin:center center; }
     .marker { position:absolute; width:10px; height:10px; border-radius:50%; cursor:grab; }
-    #panel { position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.6); color:#fff; padding:10px; }
+    #panel { position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.6); color:#fff; padding:10px; border-radius:8px; }
     #logout { margin-top:10px; padding:5px 10px; background:red; color:#fff; border:none; border-radius:4px; cursor:pointer; }
   </style>
 </head>
 <body>
-  <div id="map"><img src="map.jpg" alt="map"></div>
+  <div id="map-container">
+    <div id="map"><img src="map.jpg" alt="map"></div>
+  </div>
   <div id="panel">
     <h3>Пилот</h3>
     <div id="pilotInfo"></div>
@@ -20,7 +23,7 @@
   </div>
 
   <script>
-    // Сохраняем данные пилота в localStorage
+    // Данные пилота
     let pilotId = localStorage.getItem("pilotId");
     let name = localStorage.getItem("pilotName");
     let color = localStorage.getItem("pilotColor");
@@ -49,18 +52,17 @@
     let marker;
     let verified = false;
 
+    // Панель информации
     function updateInfo(x,y,verifiedFlag) {
       pilotInfo.innerHTML=`ID:${pilotId}<br>Имя:${name}<br>(${x},${y})<br>${verifiedFlag?"✅ Верифицирован":"❌ Не верифицирован"}`;
     }
 
     socket.onopen = () => {
-      console.log("WebSocket open, registering pilot...");
       socket.send(JSON.stringify({type:"register",pilotId,name,color}));
     };
 
     socket.onmessage = e => {
       const data = JSON.parse(e.data);
-      console.log("Message from server:", data);
 
       if (data.type==="pilots") {
         const p=data.pilots[pilotId];
@@ -101,7 +103,30 @@
       }
     };
 
-    // Возможность двигать свою метку мышкой
+    // Возможность двигать карту
+    let scale=1, translateX=0, translateY=0, dragging=false, startX, startY;
+    function updateTransform(){
+      map.style.transform=`translate(calc(-50% + ${translateX}px), calc(-50% + ${translateY}px)) scale(${scale})`;
+    }
+
+    document.addEventListener("wheel",e=>{
+      e.preventDefault();
+      scale*= e.deltaY<0?1.1:0.9;
+      if(scale<0.2) scale=0.2;
+      updateTransform();
+    });
+
+    map.addEventListener("mousedown",e=>{
+      if(!e.target.classList.contains("marker")){
+        dragging=true; startX=e.clientX-translateX; startY=e.clientY-translateY;
+      }
+    });
+    document.addEventListener("mouseup",()=>dragging=false);
+    document.addEventListener("mousemove",e=>{
+      if(dragging){ translateX=e.clientX-startX; translateY=e.clientY-startY; updateTransform(); }
+    });
+
+    // Возможность двигать свою метку
     document.addEventListener("mousedown", e => {
       if (marker && e.target===marker) {
         const startX = e.clientX - parseInt(marker.style.left);
