@@ -19,6 +19,7 @@
   <div id="panel"><h3>Пилоты</h3><div id="pilotList"></div></div>
 
   <script>
+    // Подключение к WebSocket
     const socket = new WebSocket(
       (location.protocol === "https:" ? "wss://" : "ws://") + location.host
     );
@@ -26,6 +27,7 @@
     const pilotList = document.getElementById("pilotList");
     const markers = {};
 
+    // Обновление панели пилотов
     function updatePanel(pilots) {
       pilotList.innerHTML = "";
       for (const id in pilots) {
@@ -50,6 +52,7 @@
       }
     }
 
+    // Обработка сообщений от сервера
     socket.onmessage = e => {
       const data = JSON.parse(e.data);
 
@@ -97,11 +100,12 @@
       }
     };
 
+    // Регистрация координатора
     socket.onopen = () => {
       socket.send(JSON.stringify({type:"register",pilotId:"coordinator",name:"Координатор",isCoordinator:true}));
     };
 
-    // Возможность двигать метку координатора
+    // Возможность двигать метку координатора мышкой
     document.addEventListener("mousedown", e => {
       if (markers["coordinator"] && e.target===markers["coordinator"]) {
         const startX = e.clientX - parseInt(markers["coordinator"].style.left);
