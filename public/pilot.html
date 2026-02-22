@@ -5,31 +5,31 @@
   <title>Пилот</title>
   <style>
     html, body {
-      margin: 0; padding: 0;
-      width: 100%; height: 100%;
-      overflow: hidden;
-      background: #003b6d; /* цвет за пределами карты */
+      margin:0; padding:0;
+      width:100%; height:100%;
+      overflow:hidden;
+      background:#003b6d; /* цвет за пределами карты */
     }
     #map {
-      position: absolute; top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: url("map.jpg") no-repeat center center;
-      background-size: cover; /* карта растянута на весь экран */
-      transform-origin: center center;
+      position:absolute; top:0; left:0;
+      width:100%; height:100%;
+      background:url("map.jpg") no-repeat center center;
+      background-size:cover;
+      transform-origin:center center;
     }
     .marker {
-      position: absolute;
-      width: 24px; height: 24px;
-      border-radius: 50%;
+      position:absolute;
+      width:24px; height:24px;
+      border-radius:50%;
     }
     #panel {
-      position: absolute; top: 10px; left: 10px;
-      width: 200px;
-      background: rgba(0,0,0,0.6);
-      color: #fff;
-      padding: 10px;
-      font-family: sans-serif;
-      border-radius: 8px;
+      position:absolute; top:10px; left:10px;
+      width:200px;
+      background:rgba(0,0,0,0.6);
+      color:#fff;
+      padding:10px;
+      font-family:sans-serif;
+      border-radius:8px;
     }
   </style>
 </head>
@@ -40,7 +40,6 @@
   <script>
     const pilotId = "pilot-" + Math.floor(Math.random() * 10000);
     const name = prompt("Введите ваше имя:");
-    // Генерация уникального цвета через HSL
     const color = `hsl(${Math.floor(Math.random() * 360)}, 80%, 50%)`;
 
     const socket = new WebSocket(location.origin.replace(/^http/, 'ws'));
@@ -108,6 +107,17 @@
       if (data.type === "verify" && data.pilotId === pilotId) {
         verified = true;
         updatePanel(parseInt(marker.style.left), parseInt(marker.style.top));
+      }
+
+      if (data.type === "relocate" && data.pilotId === pilotId) {
+        marker.style.left = data.x + "px";
+        marker.style.top = data.y + "px";
+        updatePanel(data.x, data.y);
+
+        // Голосовое уведомление
+        const utterance = new SpeechSynthesisUtterance(`Пилот ${name}, измените ваше местоположение`);
+        utterance.lang = "ru-RU";
+        speechSynthesis.speak(utterance);
       }
     };
 
