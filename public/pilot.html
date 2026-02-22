@@ -4,10 +4,33 @@
   <meta charset="UTF-8">
   <title>Пилот</title>
   <style>
-    html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #003b6d; }
-    #map { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: url("map.jpg") no-repeat center center; background-size: cover; transform-origin: center center; }
-    .marker { position: absolute; width: 24px; height: 24px; border-radius: 50%; }
-    #panel { position: absolute; top: 10px; left: 10px; width: 200px; background: rgba(0,0,0,0.6); color: #fff; padding: 10px; font-family: sans-serif; border-radius: 8px; }
+    html, body {
+      margin: 0; padding: 0;
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #003b6d; /* цвет за пределами карты */
+    }
+    #map {
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: url("map.jpg") no-repeat center center;
+      background-size: cover; /* карта растянута на весь экран */
+      transform-origin: center center;
+    }
+    .marker {
+      position: absolute;
+      width: 24px; height: 24px;
+      border-radius: 50%;
+    }
+    #panel {
+      position: absolute; top: 10px; left: 10px;
+      width: 200px;
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      padding: 10px;
+      font-family: sans-serif;
+      border-radius: 8px;
+    }
   </style>
 </head>
 <body>
@@ -17,4 +40,92 @@
   <script>
     const pilotId = "pilot-" + Math.floor(Math.random() * 10000);
     const name = prompt("Введите ваше имя:");
-    const color = `hsl(${Math.floor(Math.random() * 360)}, 80%, 50
+    // Генерация уникального цвета через HSL
+    const color = `hsl(${Math.floor(Math.random() * 360)}, 80%, 50%)`;
+
+    const socket = new WebSocket(location.origin.replace(/^http/, 'ws'));
+    const map = document.getElementById("map");
+    const pilotInfo = document.getElementById("pilotInfo");
+    let marker;
+    let scale = 1;
+    let verified = false;
+
+    // Зум колесиком мыши
+    document.addEventListener("wheel", e => {
+      e.preventDefault();
+      scale *= e.deltaY < 0 ? 1.1 : 0.9;
+      map.style.transform = `scale(${scale})`;
+    });
+
+    function updatePanel(x, y) {
+      pilotInfo.innerHTML = `
+        ID: ${pilotId}<br>
+        Имя: ${name}<br>
+        Координаты: (${x}, ${y})<br>
+        Статус: ${verified ? "✅ Верифицирован" : "❌ Не верифицирован"}
+      `;
+    }
+
+    socket.onopen = () => {
+      socket.send(JSON.stringify({ 
+        type: "register", 
+        pilotId, 
+        name, 
+        color 
+      }));
+    };
+
+    socket.onmessage = event => {
+      const data = JSON.parse(event.data);
+
+      if (data.type === "pilots") {
+        if (data.pilots[pilotId] && !marker) {
+          marker = document.createElement("div");
+          marker.className = "marker";
+          marker.style.background = color;
+          marker.style.left = data.pilots[pilotId].x + "px";
+          marker.style.top = data.pilots[pilotId].y + "px";
+
+          const label = document.createElement("span");
+          label.textContent = name;
+          label.style.position = "absolute";
+          label.style.left = "30px";
+          label.style.top = "0";
+          label.style.color = "#fff";
+          marker.appendChild(label);
+
+          map.appendChild(marker);
+          updatePanel(data.pilots[pilotId].x, data.pilots[pilotId].y);
+        }
+      }
+
+      if (data.type === "update" && data.pilotId === pilotId && marker) {
+        marker.style.left = data.x + "px";
+        marker.style.top = data.y + "px";
+        updatePanel(data.x, data.y);
+      }
+
+      if (data.type === "verify" && data.pilotId === pilotId) {
+        verified = true;
+        updatePanel(parseInt(marker.style.left), parseInt(marker.style.top));
+      }
+    };
+
+    document.addEventListener("keydown", e => {
+      if (!marker) return;
+      let x = parseInt(marker.style.left);
+      let y = parseInt(marker.style.top);
+
+      if (e.key === "ArrowUp") y -= 10;
+      if (e.key === "ArrowDown") y += 10;
+      if (e.key === "ArrowLeft") x -= 10;
+      if (e.key === "ArrowRight") x += 10;
+
+      marker.style.left = x + "px";
+      marker.style.top = y + "px";
+      socket.send(JSON.stringify({ type: "move", pilotId, x, y }));
+      updatePanel(x, y);
+    });
+  </script>
+</body>
+</html>
