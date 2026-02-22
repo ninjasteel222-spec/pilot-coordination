@@ -2,18 +2,15 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Координатор</title>
+  <title>Пилот</title>
   <style>
     html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#003b6d; }
     #map-container, #map, #map img { user-select: none; -webkit-user-drag: none; }
     #map-container { position:absolute; top:0; left:0; width:100%; height:100%; overflow:hidden; }
     #map { position:absolute; top:50%; left:50%; transform:translate(-50%, -50%) scale(1); transform-origin:center center; }
-    .marker { position:absolute; width:8px; height:8px; border-radius:50%; color:#fff; font-size:10px; cursor:grab; }
-    #panel { position:absolute; top:10px; right:10px; width:250px; max-height:90%; background:rgba(0,0,0,0.6); color:#fff; padding:10px; font-family:sans-serif; overflow-y:auto; border-radius:8px; }
-    .pilot-entry { margin-bottom:8px; padding:6px; background:rgba(255,255,255,0.1); border-radius:4px; }
-    .verify-btn, .disconnect-btn { margin-left:5px; padding:2px 6px; border:none; border-radius:4px; cursor:pointer; }
-    .verify-btn { background:green; color:#fff; }
-    .disconnect-btn { background:red; color:#fff; }
+    .marker { position:absolute; width:8px; height:8px; border-radius:50%; cursor:grab; font-size:10px; }
+    #panel { position:absolute; top:10px; left:10px; width:220px; background:rgba(0,0,0,0.6); color:#fff; padding:10px; font-family:sans-serif; border-radius:8px; }
+    #logout { margin-top:10px; padding:5px 10px; background:red; color:#fff; border:none; border-radius:4px; cursor:pointer; }
   </style>
 </head>
 <body>
@@ -22,15 +19,43 @@
       <img src="map.jpg" alt="map" style="width:100%; height:auto;">
     </div>
   </div>
-  <div id="panel"><h3>Пилоты</h3><div id="pilotList"></div></div>
+  <div id="panel">
+    <h3>Пилот</h3>
+    <div id="pilotInfo"></div>
+    <button id="logout">Выйти</button>
+  </div>
 
   <script>
-    const socket = new WebSocket(location.origin.replace(/^http/, 'ws'));
+    let pilotId = localStorage.getItem("pilotId");
+    let name = localStorage.getItem("pilotName");
+    let color = localStorage.getItem("pilotColor");
+
+    if (!pilotId || !name) {
+      pilotId = "pilot-" + Math.floor(Math.random() * 10000);
+      name = prompt("Введите ваше имя:");
+      color = `hsl(${Math.floor(Math.random() * 360)}, 80%, 50%)`;
+
+      localStorage.setItem("pilotId", pilotId);
+      localStorage.setItem("pilotName", name);
+      localStorage.setItem("pilotColor", color);
+    }
+
+    document.getElementById("logout").onclick = () => {
+      localStorage.removeItem("pilotId");
+      localStorage.removeItem("pilotName");
+      localStorage.removeItem("pilotColor");
+      location.reload();
+    };
+
+    const socket = new WebSocket(location.origin.replace(/^http/, 'wss'));
     const map = document.getElementById("map");
-    const pilotList = document.getElementById("pilotList");
+    const pilotInfo = document.getElementById("pilotInfo");
     const markers = {};
-    let scale = 1, translateX = 0, translateY = 0;
+    let marker;
+    let scale = 1;
+    let translateX = 0, translateY = 0;
     let isDraggingMap = false, startX, startY;
+    let verified = false;
 
     function updateTransform() {
       map.style.transform = `translate(calc(-50% + ${translateX}px), calc(-50% + ${translateY}px)) scale(${scale})`;
@@ -61,88 +86,133 @@
       }
     });
 
-    function updatePanel(pilots) {
-      pilotList.innerHTML = "";
-      for (const pilotId in pilots) {
-        const p = pilots[pilotId];
-        const entry = document.createElement("div");
-        entry.className = "pilot-entry";
-        entry.textContent = `${p.name} (${pilotId}): (${p.x}, ${p.y}) ${p.verified ? "✅" : "❌"}`;
-
-        const btnVerify = document.createElement("button");
-        btnVerify.className = "verify-btn";
-        btnVerify.textContent = "Вериф.";
-        btnVerify.onclick = () => socket.send(JSON.stringify({ type: "verify", pilotId }));
-
-        const btnDisconnect = document.createElement("button");
-        btnDisconnect.className = "disconnect-btn";
-        btnDisconnect.textContent = "Откл.";
-        btnDisconnect.onclick = () => socket.send(JSON.stringify({ type: "disconnect", pilotId }));
-
-        entry.appendChild(btnVerify);
-        entry.appendChild(btnDisconnect);
-        pilotList.appendChild(entry);
-      }
+    function updatePanel(x, y) {
+      pilotInfo.innerHTML = `
+        ID: ${pilotId}<br>
+        Имя: ${name}<br>
+        Координаты: (${x}, ${y})<br>
+        Статус: ${verified ? "✅ Верифицирован" : "❌ Не верифицирован"}
+      `;
     }
+
+    socket.onopen = () => {
+      socket.send(JSON.stringify({ type: "register", pilotId, name, color }));
+    };
+
+    let draggingMarker = null;
+    let offsetX = 0, offsetY = 0;
+
+    map.addEventListener("mousedown", e => {
+      if (e.target.classList.contains("marker") && e.target.dataset.pilotId === pilotId) {
+        draggingMarker = e.target;
+        offsetX = e.offsetX;
+        offsetY = e.offsetY;
+      }
+    });
+
+    document.addEventListener("mouseup", () => {
+      if (draggingMarker) {
+        const x = parseInt(draggingMarker.style.left);
+        const y = parseInt(draggingMarker.style.top);
+        socket.send(JSON.stringify({ type: "move", pilotId, x, y }));
+        updatePanel(x, y);
+        draggingMarker = null;
+      }
+    });
+
+    document.addEventListener("mousemove", e => {
+      if (draggingMarker) {
+        const rect = map.getBoundingClientRect();
+        const x = (e.clientX - rect.left - offsetX) / scale;
+        const y = (e.clientY - rect.top - offsetY) / scale;
+        draggingMarker.style.left = x + "px";
+        draggingMarker.style.top = y + "px";
+      }
+    });
 
     socket.onmessage = event => {
       const data = JSON.parse(event.data);
 
       if (data.type === "pilots") {
-        updatePanel(data.pilots);
-        for (const pilotId in data.pilots) {
-          const p = data.pilots[pilotId];
-          if (!markers[pilotId]) {
-            const marker = document.createElement("div");
+        if (verified) {
+          for (const pid in data.pilots) {
+            const p = data.pilots[pid];
+            if (!markers[pid]) {
+              const m = document.createElement("div");
+              m.className = "marker";
+              m.dataset.pilotId = pid;
+              m.style.left = p.x + "px";
+              m.style.top = p.y + "px";
+
+              if (p.isCoordinator) {
+                m.textContent = "★";
+                m.style.color = "yellow";
+                m.style.fontSize = "16px";
+                m.style.background = "transparent";
+              } else {
+                m.style.background = p.color;
+                const label = document.createElement("span");
+                label.textContent = p.name;
+                label.style.position = "absolute";
+                label.style.left = "15px";
+                label.style.top = "0";
+                label.style.color = "#fff";
+                m.appendChild(label);
+              }
+
+              map.appendChild(m);
+              markers[pid] = m;
+            }
+          }
+        } else {
+          if (data.pilots[pilotId] && !marker) {
+            marker = document.createElement("div");
             marker.className = "marker";
             marker.dataset.pilotId = pilotId;
-            marker.style.left = p.x + "px";
-            marker.style.top = p.y + "px";
+            marker.style.background = color;
+            marker.style.left = data.pilots[pilotId].x + "px";
+            marker.style.top = data.pilots[pilotId].y + "px";
 
-            if (p.isCoordinator) {
-              marker.textContent = "★";
-              marker.style.color = "yellow";
-              marker.style.fontSize = "16px";
-              marker.style.background = "transparent";
-            } else {
-              marker.style.background = p.color;
-              const label = document.createElement("span");
-              label.textContent = p.name;
-              label.style.position = "absolute";
-              label.style.left = "15px";
-              label.style.top = "0";
-              label.style.color = "#fff";
-              marker.appendChild(label);
-            }
+            const label = document.createElement("span");
+            label.textContent = name;
+            label.style.position = "absolute";
+            label.style.left = "15px";
+            label.style.top = "0";
+            label.style.color = "#fff";
+            marker.appendChild(label);
 
             map.appendChild(marker);
             markers[pilotId] = marker;
+            updatePanel(data.pilots[pilotId].x, data.pilots[pilotId].y);
           }
         }
       }
 
-      if (data.type === "update" || data.type === "relocate" || data.type === "move") {
-        if (markers[data.pilotId]) {
-          markers[data.pilotId].style.left = data.x + "px";
-          markers[data.pilotId].style.top = data.y + "px";
-        }
-        if (data.type === "move") {
-          const utterance = new SpeechSynthesisUtterance(`Пилот ${data.pilotId} переместил свою метку`);
-          utterance.lang = "ru-RU";
-          speechSynthesis.speak(utterance);
-        }
+      if ((data.type === "update" || data.type === "relocate") && markers[data.pilotId]) {
+        markers[data.pilotId].style.left = data.x + "px";
+        markers[data.pilotId].style.top = data.y + "px";
+        if (data.pilotId === pilotId) updatePanel(data.x, data.y);
       }
 
-      if (data.type === "error" && data.message === "Координатор уже активен") {
-        alert("Координатор уже активен на другом устройстве. Вход невозможен.");
-        socket.close();
-        window.location.href = "/";
+      if (data.type === "verify" && data.pilotId === pilotId) {
+        verified = true;
+        updatePanel(parseInt(marker.style.left), parseInt(marker.style.top));
+        const utterance = new SpeechSynthesisUtterance(`Пилот ${name}, вы верифицированы`);
+        utterance.lang = "ru-RU";
+        speechSynthesis.speak(utterance);
       }
-    };
 
-    socket.onopen = () => {
-      socket.send(JSON.stringify({ type: "register", pilotId: "coordinator", name: "Координатор", isCoordinator: true }));
-    };
-  </script>
-</body>
-</html>
+      if (data.type === "relocate" && data.pilotId === pilotId) {
+        marker.style.left = data.x + "px";
+        marker.style.top = data.y + "px";
+        updatePanel(data.x, data.y);
+        const utterance = new SpeechSynthesisUtterance(`Пилот ${name}, измените ваше местоположение`);
+        utterance.lang = "ru-RU";
+        speechSynthesis.speak(utterance);
+      }
+
+      if (data.type === "disconnect" && data.pilotId === pilotId) {
+        localStorage.removeItem("pilotId");
+        localStorage.removeItem("pilotName");
+        localStorage.removeItem("pilotColor");
+        const utterance = new SpeechSynthesisUtterance
