@@ -1,11 +1,10 @@
 const express = require('express');
 const WebSocket = require('ws');
-const path = require('path');
-
+const path = require("path");
 const app = express();
 
-// Отдаём статические файлы из папки public
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, "public")));
+
 
 // Render задаёт порт через переменную окружения
 const PORT = process.env.PORT || 3000;
