@@ -1,13 +1,14 @@
+const express = require("express");
 const http = require("http");
 const WebSocket = require("ws");
+const path = require("path");
 
-// создаём HTTP‑сервер, чтобы Render видел живой сервис
-const server = http.createServer((req, res) => {
-  res.writeHead(200, { "Content-Type": "text/plain" });
-  res.end("Pilot coordination server running");
-});
+const app = express();
 
-// привязываем WebSocket к этому же серверу
+// Раздаём статические файлы из папки public
+app.use(express.static(path.join(__dirname, "public")));
+
+const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 let pilots = {};
@@ -35,6 +36,7 @@ wss.on("connection", ws => {
       return;
     }
 
+    // регистрация
     if (data.type === "register") {
       if (data.isCoordinator) {
         if (coordinatorActive) {
@@ -49,6 +51,7 @@ wss.on("connection", ws => {
       broadcastPilots();
     }
 
+    // верификация
     if (data.type === "verify") {
       if (pilots[data.pilotId]) {
         pilots[data.pilotId].verified = true;
@@ -59,6 +62,7 @@ wss.on("connection", ws => {
       }
     }
 
+    // отключение пилота
     if (data.type === "disconnect") {
       if (clients[data.pilotId]) {
         clients[data.pilotId].send(JSON.stringify({ type: "disconnect", pilotId: data.pilotId }));
@@ -69,6 +73,7 @@ wss.on("connection", ws => {
       }
     }
 
+    // перемещение пилота
     if (data.type === "move") {
       if (pilots[data.pilotId]) {
         pilots[data.pilotId].x = data.x;
@@ -83,6 +88,7 @@ wss.on("connection", ws => {
       }
     }
 
+    // relocate координатором
     if (data.type === "relocate") {
       if (pilots[data.pilotId]) {
         pilots[data.pilotId].x = data.x;
