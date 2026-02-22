@@ -1,7 +1,13 @@
 const http = require("http");
 const WebSocket = require("ws");
 
-const server = http.createServer();
+// создаём HTTP‑сервер, чтобы Render видел живой сервис
+const server = http.createServer((req, res) => {
+  res.writeHead(200, { "Content-Type": "text/plain" });
+  res.end("Pilot coordination server running");
+});
+
+// привязываем WebSocket к этому же серверу
 const wss = new WebSocket.Server({ server });
 
 let pilots = {};
@@ -11,13 +17,23 @@ let coordinatorActive = false;
 function broadcastPilots() {
   const data = { type: "pilots", pilots };
   for (const id in clients) {
-    clients[id].send(JSON.stringify(data));
+    try {
+      clients[id].send(JSON.stringify(data));
+    } catch (e) {
+      console.error("Broadcast error:", e);
+    }
   }
 }
 
 wss.on("connection", ws => {
   ws.on("message", msg => {
-    const data = JSON.parse(msg);
+    let data;
+    try {
+      data = JSON.parse(msg);
+    } catch (e) {
+      console.error("Invalid JSON:", msg);
+      return;
+    }
 
     if (data.type === "register") {
       if (data.isCoordinator) {
@@ -58,8 +74,9 @@ wss.on("connection", ws => {
         pilots[data.pilotId].x = data.x;
         pilots[data.pilotId].y = data.y;
         broadcastPilots();
+        // уведомление координатору
         for (const id in clients) {
-          if (pilots[id].isCoordinator) {
+          if (pilots[id] && pilots[id].isCoordinator) {
             clients[id].send(JSON.stringify({ type: "move", pilotId: data.pilotId, x: data.x, y: data.y }));
           }
         }
@@ -81,7 +98,7 @@ wss.on("connection", ws => {
   ws.on("close", () => {
     for (const id in clients) {
       if (clients[id] === ws) {
-        if (pilots[id].isCoordinator) coordinatorActive = false;
+        if (pilots[id] && pilots[id].isCoordinator) coordinatorActive = false;
         delete clients[id];
         delete pilots[id];
         broadcastPilots();
@@ -90,6 +107,8 @@ wss.on("connection", ws => {
   });
 });
 
-server.listen(process.env.PORT || 8080, () => {
-  console.log("Server running");
+// Render требует слушать process.env.PORT
+const PORT = process.env.PORT || 8080;
+server.listen(PORT, () => {
+  console.log("Server running on port", PORT);
 });
