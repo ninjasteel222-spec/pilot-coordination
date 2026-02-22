@@ -47,7 +47,9 @@
       location.reload();
     };
 
-    const socket = new WebSocket(location.origin.replace(/^http/, 'wss'));
+    const socket = new WebSocket(
+      (location.protocol === "https:" ? "wss://" : "ws://") + location.host
+    );
     const map = document.getElementById("map");
     const pilotInfo = document.getElementById("pilotInfo");
     const markers = {};
