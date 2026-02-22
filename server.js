@@ -36,7 +36,6 @@ wss.on("connection", ws => {
       return;
     }
 
-    // регистрация
     if (data.type === "register") {
       if (data.isCoordinator) {
         if (coordinatorActive) {
@@ -51,7 +50,6 @@ wss.on("connection", ws => {
       broadcastPilots();
     }
 
-    // верификация
     if (data.type === "verify") {
       if (pilots[data.pilotId]) {
         pilots[data.pilotId].verified = true;
@@ -62,7 +60,6 @@ wss.on("connection", ws => {
       }
     }
 
-    // отключение пилота
     if (data.type === "disconnect") {
       if (clients[data.pilotId]) {
         clients[data.pilotId].send(JSON.stringify({ type: "disconnect", pilotId: data.pilotId }));
@@ -73,13 +70,11 @@ wss.on("connection", ws => {
       }
     }
 
-    // перемещение пилота
     if (data.type === "move") {
       if (pilots[data.pilotId]) {
         pilots[data.pilotId].x = data.x;
         pilots[data.pilotId].y = data.y;
         broadcastPilots();
-        // уведомление координатору
         for (const id in clients) {
           if (pilots[id] && pilots[id].isCoordinator) {
             clients[id].send(JSON.stringify({ type: "move", pilotId: data.pilotId, x: data.x, y: data.y }));
@@ -88,7 +83,6 @@ wss.on("connection", ws => {
       }
     }
 
-    // relocate координатором
     if (data.type === "relocate") {
       if (pilots[data.pilotId]) {
         pilots[data.pilotId].x = data.x;
@@ -113,7 +107,6 @@ wss.on("connection", ws => {
   });
 });
 
-// Render требует слушать process.env.PORT
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, () => {
   console.log("Server running on port", PORT);
