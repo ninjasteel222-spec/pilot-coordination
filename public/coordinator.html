@@ -5,7 +5,9 @@
   <title>Координатор</title>
   <style>
     html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#003b6d; }
-    #map { position:absolute; top:0; left:0; width:100%; height:100%; background:url("map.jpg") no-repeat center center; background-size:contain; transform-origin:center center; }
+    #map-container { position:absolute; top:0; left:0; width:100%; height:100%; overflow:hidden; background:#003b6d; }
+    #map { position:absolute; top:0; left:0; transform-origin:center center; }
+    #markers { position:absolute; top:0; left:0; width:100%; height:100%; }
     .marker { position:absolute; width:24px; height:24px; border-radius:50%; color:#fff; font-size:14px; cursor:grab; }
     #panel { position:absolute; top:10px; right:10px; width:250px; max-height:90%; background:rgba(0,0,0,0.6); color:#fff; padding:10px; font-family:sans-serif; overflow-y:auto; border-radius:8px; }
     .pilot-entry { margin-bottom:8px; padding:6px; background:rgba(255,255,255,0.1); border-radius:4px; }
@@ -15,18 +17,21 @@
   </style>
 </head>
 <body>
-  <div id="map"></div>
+  <div id="map-container">
+    <img id="map" src="map.jpg" alt="map">
+    <div id="markers"></div>
+  </div>
   <div id="panel"><h3>Пилоты</h3><div id="pilotList"></div></div>
 
   <script>
     const socket = new WebSocket(location.origin.replace(/^http/, 'ws'));
     const map = document.getElementById("map");
+    const markersLayer = document.getElementById("markers");
     const pilotList = document.getElementById("pilotList");
     const markers = {};
     let scale = 1;
-    let isDraggingMap = false;
-    let startX, startY;
     let translateX = 0, translateY = 0;
+    let isDraggingMap = false, startX, startY;
 
     // Зум
     document.addEventListener("wheel", e => {
@@ -37,11 +42,9 @@
 
     // Перемещение карты
     map.addEventListener("mousedown", e => {
-      if (!e.target.classList.contains("marker")) {
-        isDraggingMap = true;
-        startX = e.clientX - translateX;
-        startY = e.clientY - translateY;
-      }
+      isDraggingMap = true;
+      startX = e.clientX - translateX;
+      startY = e.clientY - translateY;
     });
     document.addEventListener("mouseup", () => { isDraggingMap = false; });
     document.addEventListener("mousemove", e => {
@@ -82,7 +85,7 @@
     let dragPilotId = null;
     let offsetX = 0, offsetY = 0;
 
-    map.addEventListener("mousedown", e => {
+    markersLayer.addEventListener("mousedown", e => {
       if (e.target.classList.contains("marker")) {
         draggingMarker = e.target;
         dragPilotId = e.target.dataset.pilotId;
@@ -139,23 +142,4 @@
               marker.appendChild(label);
             }
 
-            map.appendChild(marker);
-            markers[pilotId] = marker;
-          }
-        }
-      }
-
-      if (data.type === "update" || data.type === "relocate") {
-        if (markers[data.pilotId]) {
-          markers[data.pilotId].style.left = data.x + "px";
-          markers[data.pilotId].style.top = data.y + "px";
-        }
-      }
-    };
-
-    socket.onopen = () => {
-      socket.send(JSON.stringify({ type: "register", pilotId: "coordinator", name: "Координатор", isCoordinator: true }));
-    };
-  </script>
-</body>
-</html>
+            markersLayer
