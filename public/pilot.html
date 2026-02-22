@@ -4,27 +4,13 @@
   <meta charset="UTF-8">
   <title>Пилот</title>
   <style>
-    #map {
-      position: relative;
-      width: 800px;
-      height: 600px;
-      background: url("map.jpg") no-repeat center center;
-      background-size: cover;
-      border: 2px solid #333;
-    }
-    .marker {
-      position: absolute;
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      background: blue;
-    }
+    #map { position: relative; width: 800px; height: 600px; background: url("map.jpg") no-repeat center/cover; border: 2px solid #333; }
+    .marker { position: absolute; width: 24px; height: 24px; border-radius: 50%; background: blue; }
   </style>
 </head>
 <body>
   <h2>Карта пилота</h2>
   <div id="map"></div>
-
   <script>
     const pilotId = "pilot-" + Math.floor(Math.random() * 10000);
     const socket = new WebSocket(location.origin.replace(/^http/, 'ws'));
@@ -32,7 +18,6 @@
     let marker;
 
     socket.onopen = () => {
-      // Регистрируем пилота на сервере
       socket.send(JSON.stringify({ type: "register", pilotId }));
     };
 
@@ -55,7 +40,6 @@
       }
     };
 
-    // Управление стрелками клавиатуры
     document.addEventListener("keydown", e => {
       if (!marker) return;
       let x = parseInt(marker.style.left);
@@ -68,7 +52,6 @@
 
       marker.style.left = x + "px";
       marker.style.top = y + "px";
-
       socket.send(JSON.stringify({ type: "move", pilotId, x, y }));
     });
   </script>
