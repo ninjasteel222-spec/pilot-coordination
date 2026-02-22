@@ -1,65 +1,45 @@
-const express = require('express');
-const WebSocket = require('ws');
+const express = require("express");
 const path = require("path");
+const http = require("http");
+const WebSocket = require("ws");
+
 const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
 
 app.use(express.static(path.join(__dirname, "public")));
 
-
-// Render задаёт порт через переменную окружения
-const PORT = process.env.PORT || 3000;
-const server = app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
-
-// WebSocket сервер
-const wss = new WebSocket.Server({ server });
-
-// Список активных пилотов
 let pilots = {};
 
-wss.on('connection', ws => {
-  console.log('Client connected');
+wss.on("connection", ws => {
+  ws.on("message", msg => {
+    const data = JSON.parse(msg);
 
-  ws.on('message', message => {
-    try {
-      const data = JSON.parse(message);
+    if (data.type === "register") {
+      pilots[data.pilotId] = { x: 100, y: 100 };
+      broadcast({ type: "pilots", pilots });
+    }
 
-      // Регистрация нового пилота
-      if (data.type === 'register') {
-        ws.pilotId = data.pilotId;
-        pilots[data.pilotId] = { x: 100, y: 100 }; // стартовые координаты
-        console.log(`Pilot registered: ${data.pilotId}`);
-
-        // Отправляем координатору список пилотов
-        broadcast({ type: 'pilots', pilots });
+    if (data.type === "move") {
+      if (pilots[data.pilotId]) {
+        pilots[data.pilotId].x = data.x;
+        pilots[data.pilotId].y = data.y;
+        broadcast({ type: "update", pilotId: data.pilotId, x: data.x, y: data.y });
       }
-
-      // Обновление позиции пилота
-      if (data.type === 'move' && ws.pilotId) {
-        pilots[ws.pilotId] = { x: data.x, y: data.y };
-        broadcast({ type: 'update', pilotId: ws.pilotId, x: data.x, y: data.y });
-      }
-    } catch (err) {
-      console.error('Invalid message:', message);
     }
   });
 
-  ws.on('close', () => {
-    if (ws.pilotId) {
-      delete pilots[ws.pilotId];
-      broadcast({ type: 'pilots', pilots });
-      console.log(`Pilot disconnected: ${ws.pilotId}`);
-    }
-  });
+  ws.send(JSON.stringify({ type: "pilots", pilots }));
 });
 
-// Рассылка всем клиентам
-function broadcast(data) {
-  const msg = JSON.stringify(data);
+function broadcast(msg) {
+  const json = JSON.stringify(msg);
   wss.clients.forEach(client => {
     if (client.readyState === WebSocket.OPEN) {
-      client.send(msg);
+      client.send(json);
     }
   });
 }
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
